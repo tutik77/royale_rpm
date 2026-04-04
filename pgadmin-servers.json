@@ -1,0 +1,15 @@
+{
+  "Servers": {
+    "1": {
+      "Name": "Deck Collector",
+      "Group": "Docker",
+      "Host": "db",
+      "Port": 5432,
+      "MaintenanceDB": "deck_collector",
+      "Username": "deck_collector",
+      "Password": "deck_collector",
+      "SSLMode": "prefer",
+      "PassFile": "/tmp/pgpassfile"
+    }
+  }
+}

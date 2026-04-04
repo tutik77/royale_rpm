@@ -1,0 +1,170 @@
+services:
+
+  db:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_DB: deck_collector
+      POSTGRES_USER: deck_collector
+      POSTGRES_PASSWORD: deck_collector
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U deck_collector"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    networks:
+      - backend
+
+  redis:
+    image: redis:7-alpine
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 3s
+      timeout: 3s
+      retries: 10
+    networks:
+      - backend
+
+  collector:
+    build: ./deck_collector
+    ports:
+      - "8000:8000"
+    environment:
+      DATABASE_URL: postgresql://deck_collector:deck_collector@db:5432/deck_collector
+      REDIS_URL: redis://redis:6379/0
+      CLASH_API_BASE_URL: ${CLASH_API_BASE_URL}
+      CLASH_API_TOKEN: ${CLASH_API_TOKEN}
+      COLLECTION_INTERVAL_SECONDS: ${COLLECTION_INTERVAL_SECONDS:-14400}
+      TOP_PLAYERS_LIMIT: ${TOP_PLAYERS_LIMIT:-200}
+      LOCATION_ID: ${LOCATION_ID:-global}
+      REQUEST_DELAY: ${REQUEST_DELAY:-0.05}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: >
+      sh -c "alembic upgrade head &&
+             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+    networks:
+      - backend
+
+  collector-worker:
+    build: ./deck_collector
+    environment:
+      DATABASE_URL: postgresql://deck_collector:deck_collector@db:5432/deck_collector
+      REDIS_URL: redis://redis:6379/0
+      CLASH_API_BASE_URL: ${CLASH_API_BASE_URL}
+      CLASH_API_TOKEN: ${CLASH_API_TOKEN}
+      COLLECTION_INTERVAL_SECONDS: ${COLLECTION_INTERVAL_SECONDS:-14400}
+      TOP_PLAYERS_LIMIT: ${TOP_PLAYERS_LIMIT:-200}
+      LOCATION_ID: ${LOCATION_ID:-global}
+      REQUEST_DELAY: ${REQUEST_DELAY:-0.05}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app:celery worker -l info -c 2
+    networks:
+      - backend
+
+  collector-beat:
+    build: ./deck_collector
+    environment:
+      DATABASE_URL: postgresql://deck_collector:deck_collector@db:5432/deck_collector
+      REDIS_URL: redis://redis:6379/0
+      CLASH_API_BASE_URL: ${CLASH_API_BASE_URL}
+      CLASH_API_TOKEN: ${CLASH_API_TOKEN}
+      COLLECTION_INTERVAL_SECONDS: ${COLLECTION_INTERVAL_SECONDS:-14400}
+    depends_on:
+      db:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    command: celery -A app.celery_app:celery beat -l info
+    networks:
+      - backend
+
+  player-service:
+    build: ./player_service
+    ports:
+      - "8001:8001"
+    environment:
+      CLASH_API_BASE_URL: ${CLASH_API_BASE_URL}
+      CLASH_API_TOKEN: ${CLASH_API_TOKEN}
+      REDIS_URL: redis://redis:6379/1
+      PLAYER_CACHE_TTL: 300
+    depends_on:
+      redis:
+        condition: service_healthy
+    networks:
+      - backend
+
+  recommendation:
+    build: ./recommendation_service
+    ports:
+      - "8002:8002"
+    environment:
+      PLAYER_SERVICE_URL: http://player-service:8001
+      DECK_COLLECTOR_URL: http://collector:8000
+    depends_on:
+      - collector
+      - player-service
+    networks:
+      - backend
+
+  django:
+    build: ./django_project
+    ports:
+      - "8080:8080"
+    environment:
+      DJANGO_SECRET_KEY: ${DJANGO_SECRET_KEY:-dev-secret-key}
+      DJANGO_DEBUG: "true"
+      DECK_COLLECTOR_URL: http://collector:8000
+      PLAYER_SERVICE_URL: http://player-service:8001
+      RECOMMENDATION_SERVICE_URL: http://recommendation:8002
+    depends_on:
+      - collector
+      - player-service
+      - recommendation
+    networks:
+      - backend
+
+  dozzle:
+    image: amir20/dozzle:latest
+    ports:
+      - "9999:8080"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+    restart: unless-stopped
+    networks:
+      - backend
+
+  pgadmin:
+    image: dpage/pgadmin4:latest
+    ports:
+      - "5050:80"
+    environment:
+      PGADMIN_DEFAULT_EMAIL: admin@admin.com
+      PGADMIN_DEFAULT_PASSWORD: admin
+      PGADMIN_CONFIG_SERVER_MODE: "False"
+      PGADMIN_CONFIG_MASTER_PASSWORD_REQUIRED: "False"
+    volumes:
+      - pgadmin_data:/var/lib/pgadmin
+      - ./pgadmin-servers.json:/pgadmin4/servers.json:ro
+    depends_on:
+      db:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend
+
+networks:
+  backend:
+    driver: bridge
+
+volumes:
+  postgres_data:
+  pgadmin_data:
