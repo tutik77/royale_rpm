@@ -8,6 +8,7 @@ class Settings(BaseSettings):
 
     database_url: str = "postgresql://deck_collector:deck_collector@db:5432/deck_collector"
     redis_url: str = "redis://redis:6379/0"
+    rabbitmq_url: str = "amqp://guest:guest@rabbitmq:5672/"
 
     clash_api_base_url: str = "https://api.clashroyale.com/v1"
     clash_api_token: str = ""

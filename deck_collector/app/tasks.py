@@ -6,6 +6,7 @@ from .database import SessionLocal
 from .models import CollectionRun
 from .services.clash_api import ClashAPIClient
 from .services.collector import collect_decks
+from .services.events import publish_collection_completed
 
 logger = logging.getLogger(__name__)
 
@@ -28,6 +29,15 @@ def collect_top_decks(self):
         with ClashAPIClient(settings) as client:
             run_id = collect_decks(
                 db, client, settings.location_id, settings.top_players_limit,
+            )
+
+        run = db.get(CollectionRun, run_id)
+        if run:
+            publish_collection_completed(
+                run_id=run_id,
+                decks_found=run.decks_found,
+                new_decks=run.new_decks,
+                players_fetched=run.players_fetched,
             )
 
         return {"run_id": run_id, "status": "completed"}

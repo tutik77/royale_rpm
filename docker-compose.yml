@@ -26,6 +26,19 @@ services:
     networks:
       - backend
 
+  rabbitmq:
+    image: rabbitmq:3.13-management-alpine
+    ports:
+      - "5672:5672"     # AMQP
+      - "15672:15672"   # Management UI (guest/guest)
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "ping"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+    networks:
+      - backend
+
   collector:
     build: ./deck_collector
     ports:
@@ -33,6 +46,7 @@ services:
     environment:
       DATABASE_URL: postgresql://deck_collector:deck_collector@db:5432/deck_collector
       REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       CLASH_API_BASE_URL: ${CLASH_API_BASE_URL}
       CLASH_API_TOKEN: ${CLASH_API_TOKEN}
       COLLECTION_INTERVAL_SECONDS: ${COLLECTION_INTERVAL_SECONDS:-14400}
@@ -55,6 +69,7 @@ services:
     environment:
       DATABASE_URL: postgresql://deck_collector:deck_collector@db:5432/deck_collector
       REDIS_URL: redis://redis:6379/0
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
       CLASH_API_BASE_URL: ${CLASH_API_BASE_URL}
       CLASH_API_TOKEN: ${CLASH_API_TOKEN}
       COLLECTION_INTERVAL_SECONDS: ${COLLECTION_INTERVAL_SECONDS:-14400}
@@ -65,6 +80,8 @@ services:
       db:
         condition: service_healthy
       redis:
+        condition: service_healthy
+      rabbitmq:
         condition: service_healthy
     command: celery -A app.celery_app:celery worker -l info -c 2
     networks:
@@ -115,6 +132,24 @@ services:
     networks:
       - backend
 
+  zodiac:
+    build: ./zodiac_service
+    ports:
+      - "8003:8003"
+    networks:
+      - backend
+
+  notification-service:
+    build: ./notification_service
+    environment:
+      RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+    depends_on:
+      rabbitmq:
+        condition: service_healthy
+    restart: unless-stopped
+    networks:
+      - backend
+
   django:
     build: ./django_project
     ports:
@@ -125,10 +160,12 @@ services:
       DECK_COLLECTOR_URL: http://collector:8000
       PLAYER_SERVICE_URL: http://player-service:8001
       RECOMMENDATION_SERVICE_URL: http://recommendation:8002
+      ZODIAC_SERVICE_URL: http://zodiac:8003
     depends_on:
       - collector
       - player-service
       - recommendation
+      - zodiac
     networks:
       - backend
 
