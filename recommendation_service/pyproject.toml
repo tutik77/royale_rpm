@@ -1,0 +1,11 @@
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+pythonpath = ["."]
+addopts = "-v"
+
+[tool.coverage.run]
+source = ["app"]
+omit = ["app/config.py"]
+
+[tool.coverage.report]
+show_missing = true

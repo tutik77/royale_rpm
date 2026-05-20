@@ -1,0 +1,42 @@
+{% extends 'app/base.html' %}
+
+{% block title %}Зодиак — Royale Helper{% endblock %}
+
+{% block content %}
+<div class="zodiac-page">
+    <div class="zodiac-hero-card">
+        <div class="zodiac-hero-header">
+            <h2>Кто ты из Clash Royale?</h2>
+            <p>Выбери свой знак зодиака и узнай, какая карта — это ты!</p>
+        </div>
+
+        <form method="post" class="zodiac-form">
+            {% csrf_token %}
+            <div class="zodiac-grid">
+                {% for key, label in signs %}
+                <button type="submit" name="sign" value="{{ key }}"
+                        class="zodiac-sign-btn {% if selected_sign == key %}zodiac-sign-btn-active{% endif %}">
+                    {{ label }}
+                </button>
+                {% endfor %}
+            </div>
+        </form>
+
+        {% if error %}
+        <div class="alert alert-error">{{ error }}</div>
+        {% endif %}
+    </div>
+
+    {% if card %}
+    <div class="zodiac-result">
+        <div class="zodiac-result-card">
+            <img src="{{ card.image_url }}" alt="{{ card.name }}" class="zodiac-card-img">
+            <div class="zodiac-result-text">
+                <h3 class="zodiac-result-title">ВЫ — {{ card.name|upper }}!</h3>
+                <p class="zodiac-result-desc">{{ card.description }}</p>
+            </div>
+        </div>
+    </div>
+    {% endif %}
+</div>
+{% endblock %}

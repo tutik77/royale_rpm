@@ -1,0 +1,18 @@
+[project]
+name = "royale-helper"
+version = "1.0.0"
+description = "Clash Royale deck recommendation web app with meta deck analysis"
+readme = "README.md"
+requires-python = ">=3.12"
+dependencies = [
+    "beautifulsoup4>=4.14.2",
+    "django>=5.2.8",
+    "python-dotenv>=1.2.1",
+    "requests>=2.32.5",
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=8.0.0",
+    "pytest-django>=4.5.0",
+]

@@ -1,0 +1,12 @@
+{% extends 'app/base.html' %}
+
+{% block content %}
+<div class="hero">
+    <h1>Побеждай с умом</h1>
+    <p>Персональный ассистент по Clash Royale: читаем мету, анализируем твой аккаунт и подбираем идеальные колоды.</p>
+    <div class="hero-actions">
+        <a href="{% url 'recommend_deck' %}" class="btn-clash">Подбор по тегу</a>
+        <a href="{% url 'decks' %}" class="btn-clash btn-clash-secondary">Метовые колоды</a>
+    </div>
+</div>
+{% endblock %}

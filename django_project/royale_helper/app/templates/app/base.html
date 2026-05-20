@@ -1,0 +1,46 @@
+{% load static %}
+<!DOCTYPE html>
+<html lang="ru">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{% block title %}Royale Helper{% endblock %}</title>
+    <link rel="stylesheet" href="{% static 'app/css/style.css' %}">
+</head>
+
+<body class="page-body {% block body_class %}{% endblock %}">
+    <div class="page-shell">
+        <nav class="navbar">
+            <div class="container navbar-inner">
+                <a href="{% url 'index' %}" class="navbar-brand">Royale Helper</a>
+                {% with current=request.resolver_match.url_name %}
+                <div class="nav-links">
+                    <a href="{% url 'decks' %}"
+                       class="nav-link {% if current == 'decks' %}nav-link-active{% endif %}">Метовые колоды</a>
+                    <a href="{% url 'recommend_deck' %}"
+                       class="nav-link {% if current == 'recommend_deck' %}nav-link-active{% endif %}">Подбор колоды</a>
+                    <a href="{% url 'zodiac' %}"
+                       class="nav-link {% if current == 'zodiac' %}nav-link-active{% endif %}">Зодиак</a>
+                </div>
+                {% endwith %}
+            </div>
+        </nav>
+
+        <main class="page-main">
+            <div class="container">
+                {% block content %}
+                {% endblock %}
+            </div>
+        </main>
+
+        <footer class="page-footer">
+            <div class="container page-footer-inner">
+                <span class="page-footer-title">Royale Helper</span>
+                <span class="page-footer-text">Неофициальный помощник по Clash Royale</span>
+            </div>
+        </footer>
+    </div>
+</body>
+
+</html>
