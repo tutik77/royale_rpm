@@ -1,8 +1,10 @@
 import logging
+import time
 from datetime import datetime, timezone
 
 from sqlalchemy.orm import Session
 
+from ..metrics import collection_run_duration_seconds, decks_collected
 from ..models import Card, CollectionRun, Deck, DeckCard
 from .clash_api import ClashAPIClient, ClashAPIError
 
@@ -126,6 +128,7 @@ def collect_decks(
     db.commit()
     run_id: int = run.id
 
+    start = time.perf_counter()
     try:
         top_players = client.get_top_players(location_id, limit)
         decks_map: dict[str, dict] = {}
@@ -157,6 +160,9 @@ def collect_decks(
         run.completed_at = datetime.now(timezone.utc)
         db.commit()
 
+        decks_collected.labels(type="unique").set(decks_found)
+        decks_collected.labels(type="new").set(new_decks)
+
         logger.info(
             "Collection run #%d done: %d players, %d unique decks, %d new",
             run_id, players_fetched, decks_found, new_decks,
@@ -172,5 +178,7 @@ def collect_decks(
             db.commit()
         logger.exception("Collection run #%d failed", run_id)
         raise
+    finally:
+        collection_run_duration_seconds.observe(time.perf_counter() - start)
 
     return run_id

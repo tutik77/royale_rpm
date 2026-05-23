@@ -65,7 +65,6 @@ def main() -> None:
     channel.queue_declare(queue=QUEUE, durable=True)
     channel.queue_bind(queue=QUEUE, exchange=EXCHANGE, routing_key=ROUTING_KEY)
 
-    # По одному сообщению за раз — честное распределение при нескольких воркерах.
     channel.basic_qos(prefetch_count=1)
     channel.basic_consume(queue=QUEUE, on_message_callback=handle_message)
 

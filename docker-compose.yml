@@ -60,12 +60,14 @@ services:
         condition: service_healthy
     command: >
       sh -c "alembic upgrade head &&
-             uvicorn app.main:app --host 0.0.0.0 --port 8000"
+             uvicorn app.main:app --host 0.0.0.0 --port 8000 --no-access-log"
     networks:
       - backend
 
   collector-worker:
     build: ./deck_collector
+    ports:
+      - "9100:9100"
     environment:
       DATABASE_URL: postgresql://deck_collector:deck_collector@db:5432/deck_collector
       REDIS_URL: redis://redis:6379/0
@@ -83,7 +85,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-    command: celery -A app.celery_app:celery worker -l info -c 2
+    command: celery -A app.celery_app:celery worker -l info --pool=solo
     networks:
       - backend
 
@@ -179,6 +181,41 @@ services:
     networks:
       - backend
 
+  prometheus:
+    image: prom/prometheus:v2.54.1
+    ports:
+      - "9090:9090"
+    volumes:
+      - ./observability/prometheus/prometheus.yml:/etc/prometheus/prometheus.yml:ro
+      - prometheus_data:/prometheus
+    command:
+      - '--config.file=/etc/prometheus/prometheus.yml'
+      - '--storage.tsdb.path=/prometheus'
+      - '--web.enable-lifecycle'
+    restart: unless-stopped
+    networks:
+      - backend
+
+  grafana:
+    image: grafana/grafana:11.2.0
+    ports:
+      - "3000:3000"
+    environment:
+      GF_SECURITY_ADMIN_USER: admin
+      GF_SECURITY_ADMIN_PASSWORD: admin
+      GF_AUTH_ANONYMOUS_ENABLED: "true"
+      GF_AUTH_ANONYMOUS_ORG_ROLE: Admin
+      GF_USERS_DEFAULT_THEME: dark
+    volumes:
+      - ./observability/grafana/provisioning:/etc/grafana/provisioning:ro
+      - ./observability/grafana/dashboards:/var/lib/grafana/dashboards:ro
+      - grafana_data:/var/lib/grafana
+    depends_on:
+      - prometheus
+    restart: unless-stopped
+    networks:
+      - backend
+
   pgadmin:
     image: dpage/pgadmin4:latest
     ports:
@@ -205,3 +242,5 @@ networks:
 volumes:
   postgres_data:
   pgadmin_data:
+  prometheus_data:
+  grafana_data:
